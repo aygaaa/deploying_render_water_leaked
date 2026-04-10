@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AquaGuard — Water Leakage Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #080e14;
+    --surface:   #0d1520;
+    --surface2:  #121e2e;
+    --border:    #1a2d42;
+    --accent:    #00d4ff;
+    --accent2:   #0088cc;
+    --danger:    #ff3c5a;
+    --warn:      #ffaa00;
+    --safe:      #00e676;
+    --text:      #e2eaf4;
+    --muted:     #5a7a9a;
+    --mono:      'Space Mono', monospace;
+    --sans:      'DM Sans', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    position: relative; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 2.5rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,14,20,0.9);
+    backdrop-filter: blur(12px);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text { font-family: var(--mono); font-size: 1rem; font-weight: 700; color: var(--accent); }
+  .logo-sub  { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 20px;
+    background: var(--surface2); border: 1px solid var(--border);
+    font-size: 0.78rem; font-family: var(--mono);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--safe);
+    box-shadow: 0 0 6px var(--safe);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── Main layout ── */
+  main {
+    position: relative; z-index: 1;
+    max-width: 1200px; margin: 0 auto;
+    padding: 2rem 2rem 4rem;
+  }
+
+  .page-title {
+    font-family: var(--mono); font-size: 0.72rem;
+    color: var(--accent); letter-spacing: 0.15em;
+    text-transform: uppercase; margin-bottom: 0.4rem;
+  }
+  h1 {
+    font-size: 2rem; font-weight: 600;
+    color: var(--text); margin-bottom: 2rem;
+  }
+
+  /* ── Stat cards ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem; margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.2rem 1.4rem;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--accent2); }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+  .stat-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+  .stat-value { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+  .stat-sub   { font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem; }
+
+  /* ── Grid layout ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+  @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.5rem;
+  }
+  .panel-title {
+    font-family: var(--mono); font-size: 0.72rem;
+    color: var(--accent); letter-spacing: 0.12em;
+    text-transform: uppercase; margin-bottom: 1.2rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title::before {
+    content: ''; display: block;
+    width: 3px; height: 14px; border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* ── Gauge ── */
+  .gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+  .gauge-svg  { width: 200px; height: 120px; }
+  .gauge-val  { font-family: var(--mono); font-size: 2.2rem; font-weight: 700; text-align: center; }
+  .gauge-label{ font-size: 0.8rem; color: var(--muted); text-align: center; }
+
+  /* ── Status banner ── */
+  .status-banner {
+    border-radius: 12px; padding: 1.2rem 1.5rem;
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    transition: all 0.4s ease;
+  }
+  .status-banner.safe    { border-color: var(--safe);   background: rgba(0,230,118,0.06); }
+  .status-banner.danger  { border-color: var(--danger); background: rgba(255,60,90,0.08); animation: shake 0.4s ease; }
+  .status-banner.warning { border-color: var(--warn);   background: rgba(255,170,0,0.06); }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 60%{transform:translateX(6px)}
+  }
+  .status-icon { font-size: 2rem; flex-shrink: 0; }
+  .status-title{ font-size: 1.1rem; font-weight: 600; }
+  .status-desc { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+
+  /* ── Buttons ── */
+  .btn-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  button {
+    font-family: var(--sans); font-size: 0.88rem; font-weight: 500;
+    padding: 0.6rem 1.4rem; border-radius: 8px; border: none;
+    cursor: pointer; transition: all 0.15s; outline: none;
+  }
+  .btn-primary {
+    background: var(--accent); color: #000;
+  }
+  .btn-primary:hover { background: #33ddff; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-danger {
+    background: var(--danger); color: #fff;
+  }
+  .btn-danger:hover { background: #ff5c75; transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--accent2); }
+
+  /* ── History log ── */
+  .log-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 280px; overflow-y: auto; }
+  .log-list::-webkit-scrollbar { width: 4px; }
+  .log-list::-webkit-scrollbar-track { background: var(--surface); }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .log-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0.6rem 0.8rem; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    font-size: 0.8rem;
+  }
+  .log-badge {
+    padding: 2px 8px; border-radius: 4px; font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .log-badge.safe    { background: rgba(0,230,118,0.15); color: var(--safe); }
+  .log-badge.danger  { background: rgba(255,60,90,0.15);  color: var(--danger); }
+  .log-badge.warning { background: rgba(255,170,0,0.15);  color: var(--warn); }
+  .log-time  { color: var(--muted); font-family: var(--mono); font-size: 0.7rem; margin-left: auto; flex-shrink: 0; }
+
+  /* ── MSE chart ── */
+  #mseChart { width: 100%; height: 140px; }
+
+  /* ── Info table ── */
+  .info-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .info-table td { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .info-table td:first-child { color: var(--muted); width: 45%; }
+  .info-table td:last-child  { font-family: var(--mono); color: var(--accent); }
+
+  /* ── Severity bar ── */
+  .sev-bar-wrap { margin-top: 0.8rem; }
+  .sev-bar-label{ font-size: 0.72rem; color: var(--muted); margin-bottom: 0.3rem; display: flex; justify-content: space-between; }
+  .sev-bar-bg { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+  .sev-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease, background 0.5s ease; width: 0%; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.85rem; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center; padding: 1.5rem;
+    color: var(--muted); font-size: 0.75rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">💧</div>
+    <div>
+      <div class="logo-text">AquaGuard</div>
+      <div class="logo-sub">Water Leakage Detection System</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="dot" id="systemDot"></div>
+    <span id="systemStatus">Connecting...</span>
+  </div>
+</header>
+
+<main>
+  <div class="page-title">// Real-time monitoring dashboard</div>
+  <h1>Leakage Detection</h1>
+
+  <!-- Stat cards -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Last MSE Score</div>
+      <div class="stat-value" id="statMSE">—</div>
+      <div class="stat-sub">Reconstruction error</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Threshold</div>
+      <div class="stat-value" id="statThreshold">—</div>
+      <div class="stat-sub">95th percentile</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Scans</div>
+      <div class="stat-value" id="statScans">0</div>
+      <div class="stat-sub">This session</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Alerts Raised</div>
+      <div class="stat-value" id="statAlerts" style="color:var(--danger)">0</div>
+      <div class="stat-sub">Anomalies detected</div>
+    </div>
+  </div>
+
+  <!-- Status banner -->
+  <div class="status-banner" id="statusBanner">
+    <div class="status-icon">🔵</div>
+    <div>
+      <div class="status-title" id="statusTitle">Awaiting scan</div>
+      <div class="status-desc"  id="statusDesc">Run a simulation or upload sensor data to begin</div>
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn-primary" onclick="simulate(false)">▶ Simulate Normal</button>
+    <button class="btn-danger"  onclick="simulate(true)">⚠ Simulate Leak</button>
+    <button class="btn-ghost"   onclick="clearLog()">✕ Clear Log</button>
+  </div>
+
+  <div class="grid-2">
+
+    <!-- MSE chart panel -->
+    <div class="panel">
+      <div class="panel-title">MSE over time</div>
+      <canvas id="mseChart"></canvas>
+      <div class="sev-bar-wrap">
+        <div class="sev-bar-label">
+          <span>Risk level</span>
+          <span id="sevLabel">—</span>
+        </div>
+        <div class="sev-bar-bg">
+          <div class="sev-bar-fill" id="sevBar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Last result panel -->
+    <div class="panel">
+      <div class="panel-title">Last scan result</div>
+      <table class="info-table" id="resultTable">
+        <tr><td>Status</td>      <td id="rStatus">—</td></tr>
+        <tr><td>MSE Score</td>   <td id="rMSE">—</td></tr>
+        <tr><td>Threshold</td>   <td id="rThreshold">—</td></tr>
+        <tr><td>Confidence</td>  <td id="rConf">—</td></tr>
+        <tr><td>Severity</td>    <td id="rSev">—</td></tr>
+        <tr><td>Time</td>        <td id="rTime">—</td></tr>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- History log -->
+  <div class="panel">
+    <div class="panel-title">Detection log</div>
+    <div class="log-list" id="logList">
+      <div class="empty" id="emptyLog">No scans yet — run a simulation above</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>AquaGuard v1.0 &nbsp;·&nbsp; Conv1D Autoencoder &nbsp;·&nbsp; 119 SCADA sensors</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────
+let scans = 0, alerts = 0;
+let mseHistory = [], labelHistory = [];
+const MAX_POINTS = 20;
+
+// ── Chart setup ───────────────────────────────────────────────
+const ctx = document.getElementById('mseChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      {
+        label: 'MSE',
+        data: [],
+        borderColor: '#00d4ff',
+        backgroundColor: 'rgba(0,212,255,0.08)',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: '#00d4ff',
+        tension: 0.4,
+        fill: true,
+      },
+      {
+        label: 'Threshold',
+        data: [],
+        borderColor: '#ff3c5a',
+        borderDash: [6, 3],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400 },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { display: false },
+      y: {
+        grid: { color: 'rgba(26,45,66,0.8)' },
+        ticks: { color: '#5a7a9a', font: { family: 'Space Mono', size: 10 } },
+      }
+    }
+  }
+});
+
+// ── Health check on load ───────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    document.getElementById('systemStatus').textContent =
+      d.model_loaded ? 'System online' : 'Demo mode';
+    document.getElementById('statThreshold').textContent = d.threshold.toFixed(4);
+    document.getElementById('rThreshold').textContent    = d.threshold.toFixed(4);
+  } catch {
+    document.getElementById('systemStatus').textContent = 'Offline';
+    document.getElementById('systemDot').style.background = '#ff3c5a';
+  }
+}
+
+// ── Simulate ──────────────────────────────────────────────────
+async function simulate(injectLeak) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  try {
+    const r = await fetch('/api/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inject_leak: injectLeak })
+    });
+    const d = await r.json();
+    updateDashboard(d);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = injectLeak ? '⚠ Simulate Leak' : '▶ Simulate Normal';
+  }
+}
+
+// ── Update dashboard ──────────────────────────────────────────
+function updateDashboard(d) {
+  scans++;
+  if (d.anomaly) alerts++;
+
+  // Stat cards
+  document.getElementById('statMSE').textContent    = d.mse.toFixed(4);
+  document.getElementById('statScans').textContent  = scans;
+  document.getElementById('statAlerts').textContent = alerts;
+
+  // Status banner
+  const banner = document.getElementById('statusBanner');
+  const icon   = { Normal: '🟢', 'LEAK DETECTED': '🔴' };
+  const cls    = d.anomaly ? 'danger' : 'safe';
+  banner.className = 'status-banner ' + cls;
+  document.getElementById('statusTitle').textContent = d.status;
+  document.getElementById('statusDesc').textContent  =
+    d.anomaly
+      ? `MSE ${d.mse.toFixed(4)} exceeds threshold ${d.threshold.toFixed(4)} — immediate inspection recommended`
+      : `MSE ${d.mse.toFixed(4)} is within normal range (threshold: ${d.threshold.toFixed(4)})`;
+  document.querySelector('#statusBanner .status-icon').textContent =
+    d.anomaly ? '🚨' : '✅';
+
+  // Result table
+  const sevColor = { low:'#00e676', medium:'#ffaa00', high:'#ff8c00', critical:'#ff3c5a' };
+  document.getElementById('rStatus').textContent    = d.status;
+  document.getElementById('rStatus').style.color    = d.anomaly ? 'var(--danger)' : 'var(--safe)';
+  document.getElementById('rMSE').textContent       = d.mse.toFixed(6);
+  document.getElementById('rThreshold').textContent = d.threshold.toFixed(6);
+  document.getElementById('rConf').textContent      = d.confidence !== undefined ? (d.confidence * 100).toFixed(1) + '%' : '—';
+  document.getElementById('rSev').textContent       = d.severity.toUpperCase();
+  document.getElementById('rSev').style.color       = sevColor[d.severity] || 'var(--text)';
+  document.getElementById('rTime').textContent      = new Date().toLocaleTimeString();
+
+  // Severity bar
+  const sevPct = { low: 20, medium: 50, high: 75, critical: 100 };
+  const bar    = document.getElementById('sevBar');
+  bar.style.width      = sevPct[d.severity] + '%';
+  bar.style.background = sevColor[d.severity];
+  document.getElementById('sevLabel').textContent   = d.severity.toUpperCase();
+  document.getElementById('sevLabel').style.color   = sevColor[d.severity];
+
+  // Chart
+  const now = new Date().toLocaleTimeString('en', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  if (mseHistory.length >= MAX_POINTS) {
+    mseHistory.shift(); labelHistory.shift();
+    chart.data.datasets[0].data.shift();
+    chart.data.datasets[1].data.shift();
+    chart.data.labels.shift();
+  }
+  mseHistory.push(d.mse);
+  labelHistory.push(now);
+  chart.data.labels.push(now);
+  chart.data.datasets[0].data.push(d.mse);
+  chart.data.datasets[1].data.push(d.threshold);
+  chart.data.datasets[0].pointBackgroundColor =
+    mseHistory.map(v => v > d.threshold ? '#ff3c5a' : '#00d4ff');
+  chart.update();
+
+  // Log
+  addLog(d);
+}
+
+// ── Log ───────────────────────────────────────────────────────
+function addLog(d) {
+  const list = document.getElementById('logList');
+  const empty = document.getElementById('emptyLog');
+  if (empty) empty.remove();
+
+  const badgeCls = d.anomaly ? 'danger' : 'safe';
+  const item = document.createElement('div');
+  item.className = 'log-item';
+  item.innerHTML = `
+    <span class="log-badge ${badgeCls}">${d.anomaly ? 'LEAK' : 'OK'}</span>
+    <span>MSE: <b>${d.mse.toFixed(4)}</b> &nbsp;·&nbsp; ${d.severity.toUpperCase()}</span>
+    <span class="log-time">${new Date().toLocaleTimeString()}</span>
+  `;
+  list.insertBefore(item, list.firstChild);
+
+  // Keep max 30 items
+  while (list.children.length > 30) list.removeChild(list.lastChild);
+}
+
+function clearLog() {
+  document.getElementById('logList').innerHTML =
+    '<div class="empty" id="emptyLog">Log cleared</div>';
+  scans = 0; alerts = 0;
+  document.getElementById('statScans').textContent  = 0;
+  document.getElementById('statAlerts').textContent = 0;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+checkHealth();
+</script>
+</body>
+</html>
